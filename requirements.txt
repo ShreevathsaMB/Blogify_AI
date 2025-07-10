@@ -1,0 +1,14 @@
+crispyy-bootstrap5
+Django
+django-crispy-forms
+Pillow
+gunicorn
+packaging
+psycopg2-binary
+google-ai-generativelanguage
+google-api-core
+google-auth
+google-generativeai
+python-dotenv
+googleapis-common-protos
+#some lib missing
