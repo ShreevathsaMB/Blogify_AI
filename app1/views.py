@@ -1,0 +1,147 @@
+from django.shortcuts import render, get_object_or_404,redirect
+from django.http import HttpResponse, JsonResponse
+from .models import Post
+from .forms import PostForm
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_protect
+from django.db.models import Q
+from dotenv import load_dotenv
+import google.generativeai as genai
+import json
+import os
+# Load environment variables from .env file
+load_dotenv()
+
+# Create your views here.
+@login_required(login_url='login')
+@csrf_protect
+def post(request):
+    if request.POST:
+        form =PostForm(request.POST,request.FILES)
+        if form.is_valid():
+
+            post = form.save(commit=False)
+            post.name = request.user
+            post.save()
+
+        return redirect("view_post")
+
+    user_posts= Post.objects.filter(name=request.user)
+    form=PostForm()
+    
+    return render (request,'post.html',{'form':form,'user_posts':user_posts})
+
+
+def view_post(request):
+    
+    all_posts = Post.objects.all().order_by('-date_added')
+    # Filter posts based on category
+    category = request.GET.get('category', '')
+
+    if category:
+        all_posts = all_posts.filter(Category=category).order_by('-date_added')
+    
+    p = Paginator(all_posts, 6)
+    page_number = request.GET.get('page')
+    try:
+        page_obj = p.get_page(page_number)  # returns the desired page object
+    except PageNotAnInteger:
+    # if page_number is not an integer then assign the first page
+        page_obj = p.page(1)
+    except EmptyPage:
+    # if page is empty then return last page
+        page_obj = p.page(p.num_pages)
+
+    
+    # Filter admin posts based on the admin user
+    admin_user = get_object_or_404(User, username='shree')
+    admin_posts = Post.objects.filter(name=admin_user).order_by('-date_added').first()
+
+    latest_Post = Post.objects.order_by('-date_added')[:2]
+    if request.method == 'POST':
+        your_search_query = request.POST.get('search')
+        all_posts = all_posts.filter(
+            Q(title__icontains=your_search_query) )
+        p = Paginator(all_posts, 6)  # Reapply pagination after filtering
+        page_obj = p.page(1)  # Start at the first page after filtering
+
+    context = {'page_obj': page_obj,'latest_posts':latest_Post,'admin_posts':admin_posts}
+
+    
+
+    return render(request, 'postshow.html', context)
+
+def post_detail(request,id):
+
+    post_detail=get_object_or_404(Post,id=id)
+
+    return render(request, 'post_detail.html',{"post_detail":post_detail})
+
+@login_required(login_url='login')
+def delete_post(request, id):
+
+    get_post = get_object_or_404(Post, pk=id)
+    get_post.delete()
+
+    return redirect("home")
+
+@login_required(login_url='login')
+@csrf_protect
+def edit_post(request, id):
+    selected_post = get_object_or_404(Post, pk=id)
+
+    if request.POST:
+        edit=PostForm(request.POST,request.FILES,instance=selected_post)
+        if edit.is_valid():
+            edit.save()
+        return redirect('home')
+    
+    edit=PostForm(instance=selected_post)
+
+    
+    return render(request, 'update.html', {'edit': edit})
+
+def about(request):
+
+    return render(request,'about.html')
+
+
+def error_404_view(request, exception):
+   
+
+    return render(request, '404.html')
+
+
+
+@login_required(login_url='login')
+def generate_content(request):
+    if request.method == "POST":
+        print("Request body:", request.body)
+        print("Request body type:", type(request.body))
+        data = json.loads(request.body.decode('utf-8'))
+        prompt = data.get("prompt")
+
+        try:
+            genai.configure(api_key=os.getenv('API_KEY'))
+            model = genai.GenerativeModel('gemini-pro')
+            result = model.generate_content(prompt)
+            generated_text = result.text
+
+            response_data = {
+                "generated_text": generated_text,
+                "message": "Here's what I came up with based on your prompt:",
+            }
+
+            return JsonResponse(response_data)
+
+        except Exception as e:
+            error_response = {"error_message": str(e)}
+            return JsonResponse(error_response, status=500)
+
+    elif request.method == "GET":
+        return render(request, 'generate_content.html')
+
+    else:
+        return JsonResponse({"error_message": "Invalid request method"}, status=405)

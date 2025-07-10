@@ -1,0 +1,38 @@
+<!-- generate_content.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Content</title>
+</head>
+<body>
+    <h1>Generate Content</h1>
+    <form id="generate-form">
+        <label for="prompt">Enter a prompt:</label>
+        <textarea id="prompt" name="prompt"></textarea>
+        <button type="submit">Generate</button>
+    </form>
+
+    <div id="generated-content"></div>
+
+    <script>
+        const form = document.getElementById('generate-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const prompt = document.getElementById('prompt').value;
+            const response = await fetch('/generate-content/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: prompt })
+            });
+            const data = await response.json();
+            document.getElementById('generated-content').innerHTML = `
+                <p>${data.message}</p>
+                <p>${data.generated_text}</p>
+            `;
+        });
+    </script>
+</body>
+</html>
