@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
-API_KEY = 'AIzaSyDrNYw7-EmKqH3lbog-fbu_r64kB8IjUPA'
+API_KEY = 'apikey add here'
 os.environ['API_KEY'] = API_KEY
 
 
